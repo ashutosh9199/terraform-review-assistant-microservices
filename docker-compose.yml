@@ -1,0 +1,69 @@
+services:
+  api:
+    build:
+      context: ./apps/api-gateway
+    command: sh -c "python -m app.bootstrap && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      DATABASE_URL: sqlite:///./data/review-assistant.db
+      JWT_SECRET_KEY: local-dev-change-me
+      CORS_ORIGINS: http://localhost:5173
+      UPLOAD_SERVICE_URL: http://upload-service:8001
+      PARSER_SERVICE_URL: http://parser-service:8002
+      RULES_SERVICE_URL: http://rules-service:8003
+      AI_REVIEW_SERVICE_URL: http://ai-review-service:8004
+      SCORING_SERVICE_URL: http://scoring-service:8005
+      REPORTING_SERVICE_URL: http://reporting-service:8006
+    ports:
+      - "8000:8000"
+    volumes:
+      - api-data:/app/data
+    depends_on:
+      - upload-service
+      - parser-service
+      - rules-service
+      - ai-review-service
+      - scoring-service
+      - reporting-service
+
+  upload-service:
+    build:
+      context: ./apps/upload-service
+    environment:
+      STORAGE_PATH: /app/data/storage
+      MAX_UPLOAD_MB: "50"
+    volumes:
+      - upload-data:/app/data/storage
+
+  parser-service:
+    build:
+      context: ./apps/parser-service
+
+  rules-service:
+    build:
+      context: ./apps/rules-service
+
+  ai-review-service:
+    build:
+      context: ./apps/ai-review-service
+
+  scoring-service:
+    build:
+      context: ./apps/scoring-service
+
+  reporting-service:
+    build:
+      context: ./apps/reporting-service
+
+  frontend:
+    build:
+      context: ./apps/frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  api-data:
+  upload-data:
