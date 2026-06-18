@@ -11,3 +11,11 @@ def test_detects_anthropic() -> None:
 
 def test_detects_openai_compatible_endpoint() -> None:
     assert detect_provider("abc", "https://llm.example.com") == "openai_compatible"
+
+
+def test_detects_gemini_by_key_prefix() -> None:
+    assert detect_provider("AIzaSyDemoKey") == "gemini"
+
+
+def test_detects_gemini_by_model_name() -> None:
+    assert detect_provider("abc", model="gemini-2.0-flash") == "gemini"

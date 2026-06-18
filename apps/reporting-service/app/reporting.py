@@ -31,6 +31,10 @@ REPORT_TEMPLATE = Template(
   <div class="score">Operations: {{ scorecard.operations_score }}</div>
   <h2>Executive Summary</h2>
   <p>{{ summary }}</p>
+  {% if executive_feedback %}
+  <h2>Reviewer Feedback</h2>
+  <p>{{ executive_feedback }}</p>
+  {% endif %}
   {% for section in sections %}
   <h2>{{ section.title }}</h2>
   {% if section.findings %}
@@ -68,12 +72,14 @@ class ReportingService:
         dependency_graph: dict[str, Any],
         findings: list[dict[str, Any]],
         scorecard: dict[str, Any],
+        executive_feedback: str = "",
     ) -> dict[str, Any]:
         critical_high = [f for f in findings if f.get("severity") in {"critical", "high"}]
         sections = self._sections(findings)
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "executive_summary": self._summary(scorecard, len(findings), len(critical_high)),
+            "executive_feedback": executive_feedback,
             "scorecard": scorecard,
             "infrastructure_scorecard": scorecard,
             "inventory": inventory,
@@ -90,6 +96,7 @@ class ReportingService:
         return REPORT_TEMPLATE.render(
             generated_at=json_report["generated_at"],
             summary=json_report["executive_summary"],
+            executive_feedback=json_report.get("executive_feedback", ""),
             scorecard=json_report["scorecard"],
             sections=[
                 {"title": "Security Findings", "findings": json_report["security_findings"]},
@@ -113,9 +120,10 @@ class ReportingService:
             "",
             "Executive Summary",
             json_report["executive_summary"],
-            "",
-            "Findings",
         ]
+        if json_report.get("executive_feedback"):
+            lines.extend(["", "Reviewer Feedback", *_wrap(json_report["executive_feedback"], 100)])
+        lines.extend(["", "Findings"])
         for section_name in [
             "security_findings",
             "cost_findings",
@@ -222,3 +230,19 @@ def _simple_pdf(lines: list[str]) -> bytes:
 
 def _escape_pdf(value: str) -> str:
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) > width and current:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines

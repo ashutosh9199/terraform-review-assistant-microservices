@@ -88,18 +88,64 @@ async def ai_review(
     dependency_graph: dict[str, Any],
     rule_findings: list[dict[str, Any]],
     llm: dict[str, Any] | None,
+    categories: list[str] | None = None,
 ) -> list[dict[str, Any]]:
+    """When `categories` is a single-item list, only that specialist agent runs --
+    the orchestrator calls this once per agent so it can report live which one
+    is currently executing."""
     settings = _settings()
     payload = {
         "inventory": inventory,
         "dependency_graph": dependency_graph,
         "rule_findings": rule_findings,
         "llm": llm,
+        "categories": categories,
     }
     async with httpx.AsyncClient(timeout=settings.service_timeout_seconds) as client:
         response = await client.post(f"{settings.ai_review_service_url}/review", json=payload)
     _raise_for_status("ai-review-service", response)
     return response.json()["findings"]
+
+
+async def test_llm_credentials(
+    provider: str | None,
+    api_key: str,
+    endpoint: str | None,
+    model: str | None,
+) -> dict[str, str]:
+    """Sends a real 'hi' request to the provider via ai-review-service and returns its reply.
+
+    Raises ServiceError (with the provider's actual error text) on failure so the
+    caller can show the user exactly why the connection didn't work.
+    """
+    settings = _settings()
+    payload = {"provider": provider, "api_key": api_key, "endpoint": endpoint, "model": model}
+    async with httpx.AsyncClient(timeout=settings.service_timeout_seconds) as client:
+        response = await client.post(f"{settings.ai_review_service_url}/test", json=payload)
+    _raise_for_status("ai-review-service", response)
+    return response.json()
+
+
+async def synthesize_review(
+    inventory: dict[str, Any],
+    dependency_graph: dict[str, Any],
+    findings: list[dict[str, Any]],
+    scorecard: dict[str, Any],
+    llm: dict[str, Any] | None,
+) -> str:
+    """Calls the executive review agent, which runs last and sees every other agent's output."""
+    settings = _settings()
+    payload = {
+        "inventory": inventory,
+        "dependency_graph": dependency_graph,
+        "findings": findings,
+        "scorecard": scorecard,
+        "llm": llm,
+    }
+    async with httpx.AsyncClient(timeout=settings.service_timeout_seconds) as client:
+        response = await client.post(f"{settings.ai_review_service_url}/synthesize", json=payload)
+    _raise_for_status("ai-review-service", response)
+    return response.json()["feedback"]
 
 
 async def score(findings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -118,6 +164,7 @@ async def build_reports(
     dependency_graph: dict[str, Any],
     findings: list[dict[str, Any]],
     scorecard: dict[str, Any],
+    executive_feedback: str,
 ) -> dict[str, Any]:
     settings = _settings()
     payload = {
@@ -125,6 +172,7 @@ async def build_reports(
         "dependency_graph": dependency_graph,
         "findings": findings,
         "scorecard": scorecard,
+        "executive_feedback": executive_feedback,
     }
     async with httpx.AsyncClient(timeout=settings.service_timeout_seconds) as client:
         response = await client.post(f"{settings.reporting_service_url}/report", json=payload)

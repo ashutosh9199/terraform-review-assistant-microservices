@@ -30,6 +30,8 @@ export type Review = {
   created_at: string;
   completed_at?: string;
   error_message?: string;
+  current_stage?: string;
+  current_stage_label?: string;
   inventory?: {
     files: string[];
     resource_count: number;
@@ -38,6 +40,7 @@ export type Review = {
   };
   dependency_graph?: Record<string, unknown>;
   scorecard?: Scorecard;
+  executive_feedback?: string;
   findings: Finding[];
 };
 
@@ -72,4 +75,10 @@ export type LlmSettings = {
   model?: string;
   has_api_key: boolean;
   updated_at?: string;
+};
+
+export type LlmTestResult = {
+  provider: string;
+  model: string;
+  reply: string;
 };

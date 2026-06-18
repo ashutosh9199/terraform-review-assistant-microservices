@@ -15,6 +15,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    full_name: str | None = None
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     description: str | None = None
@@ -34,6 +40,19 @@ class LlmSettingsUpsert(BaseModel):
     endpoint: str | None = None
     model: str | None = None
     provider: str | None = None
+
+
+class LlmTestRequest(BaseModel):
+    api_key: str = Field(min_length=8)
+    endpoint: str | None = None
+    model: str | None = None
+    provider: str | None = None
+
+
+class LlmTestResponse(BaseModel):
+    provider: str
+    model: str
+    reply: str
 
 
 class LlmSettingsRead(BaseModel):
@@ -68,9 +87,12 @@ class ReviewRead(BaseModel):
     created_at: datetime
     completed_at: datetime | None
     error_message: str | None
+    current_stage: str | None = None
+    current_stage_label: str | None = None
     inventory: dict[str, Any] | None
     dependency_graph: dict[str, Any] | None
     scorecard: dict[str, Any] | None
+    executive_feedback: str | None = None
     findings: list[FindingRead]
 
 

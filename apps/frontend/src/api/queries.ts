@@ -1,8 +1,13 @@
 import { api } from './client';
-import type { DashboardSummary, LlmSettings, Project, Review } from './types';
+import type { DashboardSummary, LlmSettings, LlmTestResult, Project, Review } from './types';
 
 export async function login(email: string, password: string) {
   const { data } = await api.post('/api/auth/login', { email, password });
+  return data as { access_token: string; roles: string[] };
+}
+
+export async function signup(email: string, password: string, fullName?: string) {
+  const { data } = await api.post('/api/auth/signup', { email, password, full_name: fullName || undefined });
   return data as { access_token: string; roles: string[] };
 }
 
@@ -51,4 +56,18 @@ export async function saveLlmSettings(payload: {
 }) {
   const { data } = await api.put('/api/settings/llm', payload);
   return data as LlmSettings;
+}
+
+export async function testLlmSettings(payload: {
+  api_key: string;
+  endpoint?: string;
+  model?: string;
+  provider?: string;
+}) {
+  const { data } = await api.post('/api/settings/llm/test', payload);
+  return data as LlmTestResult;
+}
+
+export async function deleteLlmSettings() {
+  await api.delete('/api/settings/llm');
 }

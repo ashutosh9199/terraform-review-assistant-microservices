@@ -14,6 +14,7 @@ from app.services import clients
 from app.services.audit import write_audit
 from app.services.clients import ServiceError
 from app.services.orchestrator import ReviewOrchestrator
+from app.services.stages import label_for
 
 router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 
@@ -153,8 +154,11 @@ def _read_review(db: Session, review_id: int, user_id: int | None = None) -> Rev
         created_at=job.created_at,
         completed_at=job.completed_at,
         error_message=job.error_message,
+        current_stage=job.current_stage,
+        current_stage_label=label_for(job.current_stage),
         inventory=job.inventory,
         dependency_graph=job.dependency_graph,
         scorecard=job.scorecard,
+        executive_feedback=job.executive_feedback,
         findings=findings,
     )

@@ -20,6 +20,7 @@ class ReportRequest(BaseModel):
     dependency_graph: dict[str, Any]
     findings: list[dict[str, Any]] = []
     scorecard: dict[str, Any]
+    executive_feedback: str = ""
 
 
 @app.get("/healthz", tags=["system"])
@@ -34,6 +35,7 @@ def report(request: ReportRequest) -> dict[str, Any]:
         request.dependency_graph,
         request.findings,
         request.scorecard,
+        request.executive_feedback,
     )
     html_report = reporting.build_html_report(json_report)
     pdf_report = reporting.build_pdf_report(json_report)

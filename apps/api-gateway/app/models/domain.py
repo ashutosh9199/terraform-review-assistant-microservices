@@ -51,6 +51,7 @@ class ReviewJob(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     status: Mapped[str] = mapped_column(String(40), default=ReviewStatus.queued.value, index=True)
+    current_stage: Mapped[str | None] = mapped_column(String(60))
     original_filename: Mapped[str] = mapped_column(String(512))
     storage_path: Mapped[str] = mapped_column(String(1024))
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
@@ -61,6 +62,7 @@ class ReviewJob(Base):
     inventory: Mapped[dict | None] = mapped_column(JSON)
     dependency_graph: Mapped[dict | None] = mapped_column(JSON)
     scorecard: Mapped[dict | None] = mapped_column(JSON)
+    executive_feedback: Mapped[str | None] = mapped_column(Text)
 
 
 class Finding(Base):

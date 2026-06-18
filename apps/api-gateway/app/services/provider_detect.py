@@ -12,6 +12,8 @@ def detect_provider(api_key: str, endpoint: str | None = None, model: str | None
         return "anthropic"
     if "generativelanguage.googleapis.com" in endpoint_lower or "gemini" in model_lower:
         return "gemini"
+    if api_key.startswith("AIza"):
+        return "gemini"
     if api_key.startswith("sk-"):
         return "openai"
     if endpoint:

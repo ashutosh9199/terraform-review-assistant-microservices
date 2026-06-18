@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getReview } from '../api/queries';
 import { api } from '../api/client';
+import { ReviewStageStepper } from '../components/ReviewStageStepper';
 import { ScoreTile } from '../components/ScoreTile';
 import { SeverityChip } from '../components/SeverityChip';
 
@@ -34,6 +35,12 @@ const resourceColumns: GridColDef[] = [
   }
 ];
 
+const REPORT_MIME: Record<'json' | 'html' | 'pdf', string> = {
+  json: 'application/json',
+  html: 'text/html',
+  pdf: 'application/pdf'
+};
+
 export function AnalysisPage() {
   const { reviewId } = useParams();
   const { data, refetch, isLoading } = useQuery({
@@ -45,8 +52,19 @@ export function AnalysisPage() {
     }
   });
 
-  function reportUrl(format: 'json' | 'html' | 'pdf') {
-    return `${api.defaults.baseURL}/api/reviews/${reviewId}/report.${format}`;
+  async function downloadReport(format: 'json' | 'html' | 'pdf') {
+    const response = await api.get(`/api/reviews/${reviewId}/report.${format}`, {
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: REPORT_MIME[format] });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `terraform-review-${reviewId}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -60,19 +78,31 @@ export function AnalysisPage() {
           <Button startIcon={<RefreshIcon />} onClick={() => refetch()}>
             Refresh
           </Button>
-          <Button startIcon={<DownloadIcon />} href={reportUrl('json')} target="_blank" disabled={data?.status !== 'completed'}>
+          <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('json')} disabled={data?.status !== 'completed'}>
             JSON
           </Button>
-          <Button variant="contained" startIcon={<DownloadIcon />} href={reportUrl('html')} target="_blank" disabled={data?.status !== 'completed'}>
+          <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => downloadReport('html')} disabled={data?.status !== 'completed'}>
             HTML
           </Button>
-          <Button startIcon={<DownloadIcon />} href={reportUrl('pdf')} target="_blank" disabled={data?.status !== 'completed'}>
+          <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('pdf')} disabled={data?.status !== 'completed'}>
             PDF
           </Button>
         </Stack>
       </Box>
 
-      <Chip sx={{ width: 'fit-content' }} color={data?.status === 'completed' ? 'success' : 'info'} label={data?.status ?? 'loading'} />
+      <Chip
+        sx={{ width: 'fit-content' }}
+        color={data?.status === 'completed' ? 'success' : data?.status === 'failed' ? 'error' : 'info'}
+        label={data?.status === 'running' ? data?.current_stage_label ?? 'running' : data?.status ?? 'loading'}
+      />
+
+      {data && (
+        <ReviewStageStepper
+          status={data.status}
+          currentStage={data.current_stage}
+          currentStageLabel={data.current_stage_label}
+        />
+      )}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={2.4}>
@@ -91,6 +121,17 @@ export function AnalysisPage() {
           <ScoreTile label="Operations" value={data?.scorecard?.operations_score ?? 0} />
         </Grid>
       </Grid>
+
+      {data?.executive_feedback && (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Reviewer Feedback
+            </Typography>
+            <Typography color="text.secondary">{data.executive_feedback}</Typography>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent>

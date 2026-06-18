@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clearToken } from '../api/client';
+import { LlmOnboardingModal } from './LlmOnboardingModal';
 
 const drawerWidth = 268;
 
@@ -38,6 +39,7 @@ export function AppShell() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <LlmOnboardingModal />
       <AppBar
         position="fixed"
         color="inherit"
