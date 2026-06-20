@@ -15,13 +15,13 @@ import {
   MenuItem,
   Select,
   Stack,
-  TextField,
-  Typography
+  TextField
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { FormEvent, useState } from 'react';
 import { deleteLlmSettings, getLlmSettings, saveLlmSettings, testLlmSettings } from '../api/queries';
+import { PageHeader } from '../components/PageHeader';
 import { detectProvider, findProvider, PROVIDERS, ProviderId } from '../llmProviders';
 
 function errorDetail(error: unknown): string {
@@ -91,10 +91,7 @@ export function SettingsPage() {
 
   return (
     <Stack spacing={3}>
-      <div>
-        <Typography variant="h4">Settings</Typography>
-        <Typography color="text.secondary">Configure LLM access and review behavior.</Typography>
-      </div>
+      <PageHeader title="Settings" description="Configure LLM access and review behavior." />
       <Card>
         <CardContent>
           <Stack component="form" spacing={2.5} onSubmit={onSubmit}>

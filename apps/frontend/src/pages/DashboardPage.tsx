@@ -2,6 +2,7 @@ import { Box, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useQuery } from '@tanstack/react-query';
 import { getDashboard } from '../api/queries';
+import { PageHeader } from '../components/PageHeader';
 import { ScoreTile } from '../components/ScoreTile';
 
 const columns: GridColDef[] = [
@@ -16,10 +17,10 @@ export function DashboardPage() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">Dashboard</Typography>
-        <Typography color="text.secondary">Infrastructure review posture across submitted Terraform projects.</Typography>
-      </Box>
+      <PageHeader
+        title="Dashboard"
+        description="Infrastructure review posture across submitted Terraform projects."
+      />
       <Grid container spacing={2}>
         <Grid item xs={12} md={2}>
           <ScoreTile label="Total Reviews" value={data?.total_reviews ?? 0} />
@@ -100,9 +101,8 @@ function TrendPanel({
                   sx={{
                     width: '100%',
                     height: `${Math.max(4, item.score)}%`,
-                    bgcolor: tone,
-                    opacity: 0.8,
-                    borderRadius: '4px 4px 0 0'
+                    backgroundImage: `linear-gradient(180deg, ${tone}cc, ${tone})`,
+                    borderRadius: '6px 6px 0 0'
                   }}
                 />
               </Box>

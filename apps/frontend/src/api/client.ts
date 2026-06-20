@@ -25,3 +25,14 @@ export function clearToken() {
 export function hasToken() {
   return Boolean(localStorage.getItem('tra_token'));
 }
+
+export function getCurrentUserEmail(): string | undefined {
+  const token = localStorage.getItem('tra_token');
+  if (!token) return undefined;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.sub;
+  } catch {
+    return undefined;
+  }
+}

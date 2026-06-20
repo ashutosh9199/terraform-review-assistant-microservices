@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { createProject, getProjects, uploadReview } from '../api/queries';
+import { PageHeader } from '../components/PageHeader';
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export function UploadPage() {
       if (!files.length) throw new Error('Select files first');
       return uploadReview(Number(effectiveProjectId), files);
     },
-    onSuccess: (review) => navigate(`/analysis/${review.id}`)
+    onSuccess: (review) => navigate(`/app/analysis/${review.id}`)
   });
 
   const dropzone = useDropzone({
@@ -56,10 +57,7 @@ export function UploadPage() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h4">Upload Terraform</Typography>
-        <Typography color="text.secondary">Submit a ZIP project or individual Terraform files for review.</Typography>
-      </Box>
+      <PageHeader title="Upload Terraform" description="Submit a ZIP project or individual Terraform files for review." />
       <Card>
         <CardContent>
           <Stack spacing={3}>

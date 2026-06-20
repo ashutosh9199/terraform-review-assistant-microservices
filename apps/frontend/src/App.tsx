@@ -3,6 +3,7 @@ import { hasToken } from './api/client';
 import { AppShell } from './components/AppShell';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -19,9 +20,10 @@ function Protected() {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/" element={<Protected />}>
+      <Route path="/app" element={<Protected />}>
         <Route index element={<DashboardPage />} />
         <Route path="upload" element={<UploadPage />} />
         <Route path="analysis/:reviewId" element={<AnalysisPage />} />

@@ -1,8 +1,9 @@
-import { Card, CardContent, Stack, Typography } from '@mui/material';
+import { Card, CardContent, Stack } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../api/queries';
+import { PageHeader } from '../components/PageHeader';
 
 const columns: GridColDef[] = [
   { field: 'filename', headerName: 'Report', flex: 1 },
@@ -17,10 +18,7 @@ export function ReportsPage() {
 
   return (
     <Stack spacing={3}>
-      <div>
-        <Typography variant="h4">Reports</Typography>
-        <Typography color="text.secondary">Open completed reviews and download assessment artifacts.</Typography>
-      </div>
+      <PageHeader title="Reports" description="Open completed reviews and download assessment artifacts." />
       <Card>
         <CardContent>
           <DataGrid
@@ -30,7 +28,7 @@ export function ReportsPage() {
             autoHeight
             disableRowSelectionOnClick
             pageSizeOptions={[10, 25, 100]}
-            onRowClick={(params) => navigate(`/analysis/${params.id}`)}
+            onRowClick={(params) => navigate(`/app/analysis/${params.id}`)}
           />
         </CardContent>
       </Card>

@@ -1,10 +1,11 @@
 import { Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import { Box, Button, Card, CardContent, Chip, Grid, Stack, Typography } from '@mui/material';
+import { Button, Card, CardContent, Chip, Grid, Stack, Typography } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getReview } from '../api/queries';
 import { api } from '../api/client';
+import { PageHeader } from '../components/PageHeader';
 import { ReviewStageStepper } from '../components/ReviewStageStepper';
 import { ScoreTile } from '../components/ScoreTile';
 import { SeverityChip } from '../components/SeverityChip';
@@ -69,26 +70,26 @@ export function AnalysisPage() {
 
   return (
     <Stack spacing={3}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-        <Box>
-          <Typography variant="h4">Analysis</Typography>
-          <Typography color="text.secondary">{data?.original_filename ?? 'Review details'}</Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button startIcon={<RefreshIcon />} onClick={() => refetch()}>
-            Refresh
-          </Button>
-          <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('json')} disabled={data?.status !== 'completed'}>
-            JSON
-          </Button>
-          <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => downloadReport('html')} disabled={data?.status !== 'completed'}>
-            HTML
-          </Button>
-          <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('pdf')} disabled={data?.status !== 'completed'}>
-            PDF
-          </Button>
-        </Stack>
-      </Box>
+      <PageHeader
+        title="Analysis"
+        description={data?.original_filename ?? 'Review details'}
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button startIcon={<RefreshIcon />} onClick={() => refetch()}>
+              Refresh
+            </Button>
+            <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('json')} disabled={data?.status !== 'completed'}>
+              JSON
+            </Button>
+            <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => downloadReport('html')} disabled={data?.status !== 'completed'}>
+              HTML
+            </Button>
+            <Button startIcon={<DownloadIcon />} onClick={() => downloadReport('pdf')} disabled={data?.status !== 'completed'}>
+              PDF
+            </Button>
+          </Stack>
+        }
+      />
 
       <Chip
         sx={{ width: 'fit-content' }}
