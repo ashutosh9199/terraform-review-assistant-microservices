@@ -15,8 +15,8 @@ variable "location" {
 
 variable "kubernetes_version" {
   type        = string
-  description = "Kubernetes version (capstone requires v1.29+)."
-  default     = "1.29"
+  description = "Kubernetes version (capstone requires v1.29+; pinned to a version supported in the target region)."
+  default     = "1.34.8"
 }
 
 variable "system_node_vm_size" {

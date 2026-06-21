@@ -3,7 +3,7 @@
 
 location           = "eastus"
 name_prefix        = "tra-aks"
-kubernetes_version = "1.29"
+kubernetes_version = "1.34.8" # 1.29 is retired in eastus; this is region-supported and satisfies "v1.29+"
 
 # B2s (2 vCPU) x2 = 4 vCPU, fits the trial subscription's regional quota.
 system_node_vm_size = "Standard_B2s"
