@@ -80,4 +80,16 @@ jobs:
           test -n "$IP" || { echo "no external IP"; exit 1; }
           echo "Frontend external IP: $IP"
           curl -fsS "http://$IP/healthz"
+          echo "FRONTEND_IP=$IP" >> "$GITHUB_ENV"
           echo "::notice title=Deployed::Frontend reachable at http://$IP"
+
+      - name: Notify result (success/failure)
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "### ✅ Deploy succeeded" >> "$GITHUB_STEP_SUMMARY"
+            echo "Application is live at http://${FRONTEND_IP} (namespace: production)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Deploy failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the job logs above for the failing step." >> "$GITHUB_STEP_SUMMARY"
+          fi

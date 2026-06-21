@@ -38,6 +38,9 @@ Every rubric requirement mapped to the file(s) that satisfy it. Paths are repo-r
 |---|---|
 | Build pipeline (lint/test/build/scan/push) | `.github/workflows/build.yml` |
 | Image scan + fail on HIGH/CRITICAL (gate) | `build.yml` Trivy step (`exit-code: 1`) |
+| SAST (static analysis) | `.github/workflows/codeql.yml` (Python + JS/TS) |
+| Code quality (lint) | `build.yml` ruff (gateway) + `npm run lint` (frontend) |
+| Notification on success/failure | `deploy.yml` notify step (`if: always()`) |
 | Deploy pipeline (creds, apply, rollout, smoke) | `.github/workflows/deploy.yml` |
 | Deploy requires approval | `deploy.yml` `environment: production` (required reviewers) |
 | Infra pipeline (validate/plan/approve/apply) | `.github/workflows/terraform-apply.yml` |
