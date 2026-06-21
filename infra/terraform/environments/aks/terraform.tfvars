@@ -5,8 +5,9 @@ location           = "eastus"
 name_prefix        = "tra-aks"
 kubernetes_version = "1.29"
 
-system_node_vm_size = "Standard_D2s_v5"
-user_node_vm_size   = "Standard_D2s_v5"
+# B2s (2 vCPU) x2 = 4 vCPU, fits the trial subscription's regional quota.
+system_node_vm_size = "Standard_B2s"
+user_node_vm_size   = "Standard_B2s"
 
 k8s_namespace       = "production"
 k8s_service_account = "upload-service"

@@ -13,19 +13,17 @@ resource "azurerm_kubernetes_cluster" "this" {
   workload_identity_enabled         = true
   role_based_access_control_enabled = true
 
-  # System node pool (autoscaling). Runs critical add-ons only; application
-  # workloads are scheduled onto the user pool.
+  # System node pool (autoscaling). On the 4-vCPU trial quota it is pinned to a
+  # single node and also schedules application pods (no critical-addons taint).
   default_node_pool {
-    name                         = "system"
-    vm_size                      = var.system_node_vm_size
-    vnet_subnet_id               = var.subnet_id
-    orchestrator_version         = var.kubernetes_version
-    only_critical_addons_enabled = true
-    enable_auto_scaling          = true
-    min_count                    = 1
-    max_count                    = 3
-    node_count                   = 1
-    tags                         = var.tags
+    name                 = "system"
+    vm_size              = var.system_node_vm_size
+    vnet_subnet_id       = var.subnet_id
+    orchestrator_version = var.kubernetes_version
+    enable_auto_scaling  = true
+    min_count            = 1
+    max_count            = var.system_node_max_count
+    tags                 = var.tags
   }
 
   identity {
@@ -58,8 +56,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   mode                  = "User"
   enable_auto_scaling   = true
   min_count             = 1
-  max_count             = 5
-  node_count            = 2
+  max_count             = var.user_node_max_count
   tags                  = var.tags
 }
 

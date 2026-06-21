@@ -21,14 +21,26 @@ variable "kubernetes_version" {
 
 variable "system_node_vm_size" {
   type        = string
-  description = "VM size for the system node pool."
-  default     = "Standard_D2s_v5"
+  description = "VM size for the system node pool (B2s = 2 vCPU, fits the 4-vCPU trial quota)."
+  default     = "Standard_B2s"
 }
 
 variable "user_node_vm_size" {
   type        = string
-  description = "VM size for the user node pool."
-  default     = "Standard_D2s_v5"
+  description = "VM size for the user node pool (B2s = 2 vCPU, fits the 4-vCPU trial quota)."
+  default     = "Standard_B2s"
+}
+
+variable "system_node_max_count" {
+  type        = number
+  description = "Max system nodes for autoscaling (1 on the 4-vCPU trial quota; raise after a quota increase)."
+  default     = 1
+}
+
+variable "user_node_max_count" {
+  type        = number
+  description = "Max user nodes for autoscaling (1 on the 4-vCPU trial quota; raise after a quota increase)."
+  default     = 1
 }
 
 variable "subnet_id" {

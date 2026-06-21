@@ -18,14 +18,14 @@ variable "kubernetes_version" {
 
 variable "system_node_vm_size" {
   type        = string
-  description = "VM size for the AKS system node pool."
-  default     = "Standard_D2s_v5"
+  description = "VM size for the AKS system node pool (B2s fits the 4-vCPU trial quota)."
+  default     = "Standard_B2s"
 }
 
 variable "user_node_vm_size" {
   type        = string
-  description = "VM size for the AKS user node pool."
-  default     = "Standard_D2s_v5"
+  description = "VM size for the AKS user node pool (B2s fits the 4-vCPU trial quota)."
+  default     = "Standard_B2s"
 }
 
 variable "k8s_namespace" {
