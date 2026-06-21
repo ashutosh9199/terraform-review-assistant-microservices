@@ -1,0 +1,83 @@
+name: deploy
+
+# Capstone §C pipeline 2: deploy to AKS after a successful build. The
+# `production` environment carries required reviewers, which makes this an
+# approval gate. Auth is via OIDC; the app Secret is created from a GitHub
+# Secret (never committed).
+
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    # Only deploy when the triggering build succeeded.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production # <-- configure required reviewers here = approval gate
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group "${{ vars.AKS_RG }}" --name "${{ vars.AKS_CLUSTER }}" --overwrite-existing
+
+      - name: Substitute manifest placeholders
+        run: |
+          cd kubernetes
+          sed -i "s|__ACR_LOGIN_SERVER__|${{ vars.ACR_LOGIN_SERVER }}|g; s|__IMAGE_TAG__|${IMAGE_TAG}|g" deployment.yaml
+          sed -i "s|__AZURE_STORAGE_ACCOUNT__|${{ vars.AZURE_STORAGE_ACCOUNT }}|g" configmap.yaml
+          sed -i "s|__WORKLOAD_IDENTITY_CLIENT_ID__|${{ vars.WORKLOAD_IDENTITY_CLIENT_ID }}|g" serviceaccount.yaml
+
+      - name: Create namespace & app Secret (from GitHub Secret)
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+          kubectl create secret generic tra-secrets -n production \
+            --from-literal=JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -f kubernetes/serviceaccount.yaml
+          kubectl apply -f kubernetes/configmap.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/service.yaml
+          kubectl apply -f kubernetes/networkpolicy.yaml
+
+      - name: Wait for rollouts
+        run: |
+          for d in api-gateway frontend upload-service parser-service rules-service ai-review-service scoring-service reporting-service; do
+            kubectl rollout status deployment/$d -n production --timeout=180s
+          done
+
+      - name: Smoke test (frontend EXTERNAL-IP health)
+        run: |
+          IP=""
+          for i in $(seq 1 30); do
+            IP=$(kubectl get svc frontend -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || true)
+            [ -n "$IP" ] && break
+            echo "waiting for LoadBalancer IP..."; sleep 10
+          done
+          test -n "$IP" || { echo "no external IP"; exit 1; }
+          echo "Frontend external IP: $IP"
+          curl -fsS "http://$IP/healthz"
+          echo "::notice title=Deployed::Frontend reachable at http://$IP"

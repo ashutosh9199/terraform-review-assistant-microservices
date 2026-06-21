@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from app.storage import UploadError, UploadStore
+from app.config import config
+from app.storage import UploadError, get_store
 
 app = FastAPI(
     title="Upload Service",
@@ -8,12 +9,23 @@ app = FastAPI(
     description="Validates, stores, and expands uploaded Terraform projects.",
 )
 
-store = UploadStore()
+store = get_store()
 
 
 @app.get("/healthz", tags=["system"])
 def healthz() -> dict[str, str]:
+    """Liveness probe — process is up."""
     return {"status": "ok", "service": "upload-service"}
+
+
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    """Readiness probe — the storage backend (local dir or Blob via Workload Identity) is reachable."""
+    try:
+        store.ready()
+    except Exception as exc:  # pragma: no cover - surfaced to the probe
+        raise HTTPException(status_code=503, detail=f"storage not ready: {exc}") from exc
+    return {"status": "ready", "backend": config.storage_backend}
 
 
 @app.post("/uploads/{review_id}", tags=["uploads"])

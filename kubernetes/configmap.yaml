@@ -1,0 +1,29 @@
+# Non-sensitive configuration only (capstone §7: secrets live in a Secret, not
+# here). AZURE_STORAGE_ACCOUNT is filled at deploy time from the Terraform
+# output `storage_account_name`. No account keys or connection strings — the
+# upload-service reaches Blob via Workload Identity.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tra-config
+  namespace: production
+  labels:
+    app.kubernetes.io/part-of: terraform-review-assistant
+data:
+  ENVIRONMENT: "production"
+  # upload-service -> Azure Blob via Workload Identity
+  STORAGE_BACKEND: "azure"
+  AZURE_STORAGE_ACCOUNT: "__AZURE_STORAGE_ACCOUNT__"
+  AZURE_STORAGE_CONTAINER: "terraform-projects"
+  MAX_UPLOAD_MB: "50"
+  # gateway: per-pod SQLite (ephemeral; gateway runs single-replica).
+  DATABASE_URL: "sqlite:///./data/review-assistant.db"
+  # Same-origin through the frontend proxy, so CORS is effectively unused.
+  CORS_ORIGINS: "*"
+  # In-cluster service discovery (gateway orchestrates the pipeline).
+  UPLOAD_SERVICE_URL: "http://upload-service:8001"
+  PARSER_SERVICE_URL: "http://parser-service:8002"
+  RULES_SERVICE_URL: "http://rules-service:8003"
+  AI_REVIEW_SERVICE_URL: "http://ai-review-service:8004"
+  SCORING_SERVICE_URL: "http://scoring-service:8005"
+  REPORTING_SERVICE_URL: "http://reporting-service:8006"

@@ -56,10 +56,10 @@ module "api_app" {
   container_image                 = var.container_image
   application_insights_connection = module.app_insights.connection_string
   app_settings = {
-    DATABASE_URL        = "mssql+pyodbc://${var.sql_admin_login}:${var.sql_admin_password}@${module.sql.server_fqdn}:1433/${module.sql.database_name}"
-    STORAGE_BACKEND     = "azure"
-    KEY_VAULT_URL       = module.key_vault.vault_uri
-    AZURE_STORAGE_NAME  = module.storage.account_name
+    DATABASE_URL            = "mssql+pyodbc://${var.sql_admin_login}:${var.sql_admin_password}@${module.sql.server_fqdn}:1433/${module.sql.database_name}"
+    STORAGE_BACKEND         = "azure"
+    KEY_VAULT_URL           = module.key_vault.vault_uri
+    AZURE_STORAGE_NAME      = module.storage.account_name
     AZURE_STORAGE_CONTAINER = module.storage.container_name
   }
   tags = var.tags

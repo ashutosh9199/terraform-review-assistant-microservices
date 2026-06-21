@@ -1,0 +1,7 @@
+# Copy to backend.hcl and fill in the values printed by scripts/bootstrap-tfstate.sh.
+# None of these are secrets. Run: terraform init -backend-config=backend.hcl
+resource_group_name  = "tra-tfstate-rg"
+storage_account_name = "tratfstateXXXXXX"
+container_name       = "tfstate"
+key                  = "aks/terraform.tfstate"
+use_azuread_auth     = true

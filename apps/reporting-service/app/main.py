@@ -28,6 +28,11 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "reporting-service"}
 
 
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    return {"status": "ready", "service": "reporting-service"}
+
+
 @app.post("/report", tags=["reporting"])
 def report(request: ReportRequest) -> dict[str, Any]:
     json_report = reporting.build_json_report(

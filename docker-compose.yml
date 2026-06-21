@@ -57,10 +57,14 @@ services:
   frontend:
     build:
       context: ./apps/frontend
+      args:
+        # Same-origin: the SPA calls /api/* and nginx proxies to the gateway.
+        VITE_API_BASE_URL: ""
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      # Local gateway service is named "api"; nginx proxies /api -> api:8000.
+      GATEWAY_UPSTREAM: api:8000
     ports:
-      - "5173:80"
+      - "5173:8080"
     depends_on:
       - api
 

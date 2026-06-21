@@ -1,0 +1,352 @@
+# Deployments for all eight services. Image refs use placeholders
+# (__ACR_LOGIN_SERVER__ / __IMAGE_TAG__) substituted by deploy.yml.
+#
+# Security (capstone §7) on every pod: runAsNonRoot, no privilege escalation,
+# all Linux capabilities dropped, RuntimeDefault seccomp. Resources stay within
+# the rubric bounds (cpu 100m/500m, memory 128Mi/512Mi). Liveness = /healthz,
+# readiness = /ready.
+#
+# Replicas: gateway 1 (stateful SQLite), frontend 2 and upload-service 2
+# (stateless / shared Blob state) demonstrate horizontal scaling; the remaining
+# stateless services run 1 each.
+
+# ---------------- api-gateway ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: production
+  labels: { app: api-gateway, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: api-gateway }
+  template:
+    metadata:
+      labels: { app: api-gateway }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api-gateway
+          image: __ACR_LOGIN_SERVER__/api-gateway:__IMAGE_TAG__
+          # Seed the default admin user, then serve.
+          command: ["/bin/sh", "-c"]
+          args: ["python -m app.bootstrap && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: tra-config }
+            - secretRef: { name: tra-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+# ---------------- frontend ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: production
+  labels: { app: frontend, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: frontend
+          image: __ACR_LOGIN_SERVER__/frontend:__IMAGE_TAG__
+          ports: [{ containerPort: 8080 }]
+          env:
+            - name: GATEWAY_UPSTREAM
+              value: "api-gateway:8000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- upload-service (Workload Identity -> Blob) ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-service
+  namespace: production
+  labels: { app: upload-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: upload-service }
+  template:
+    metadata:
+      labels:
+        app: upload-service
+        # Required for the Workload Identity webhook to project the token.
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: upload-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: upload-service
+          image: __ACR_LOGIN_SERVER__/upload-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8001 }]
+          envFrom:
+            - configMapRef: { name: tra-config }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8001 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8001 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- parser-service ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parser-service
+  namespace: production
+  labels: { app: parser-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: parser-service }
+  template:
+    metadata:
+      labels: { app: parser-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: parser-service
+          image: __ACR_LOGIN_SERVER__/parser-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8002 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8002 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8002 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- rules-service ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rules-service
+  namespace: production
+  labels: { app: rules-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: rules-service }
+  template:
+    metadata:
+      labels: { app: rules-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: rules-service
+          image: __ACR_LOGIN_SERVER__/rules-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8003 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8003 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8003 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- ai-review-service ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-review-service
+  namespace: production
+  labels: { app: ai-review-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ai-review-service }
+  template:
+    metadata:
+      labels: { app: ai-review-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ai-review-service
+          image: __ACR_LOGIN_SERVER__/ai-review-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8004 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8004 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8004 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- scoring-service ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scoring-service
+  namespace: production
+  labels: { app: scoring-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: scoring-service }
+  template:
+    metadata:
+      labels: { app: scoring-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: scoring-service
+          image: __ACR_LOGIN_SERVER__/scoring-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8005 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8005 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8005 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# ---------------- reporting-service ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reporting-service
+  namespace: production
+  labels: { app: reporting-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reporting-service }
+  template:
+    metadata:
+      labels: { app: reporting-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: reporting-service
+          image: __ACR_LOGIN_SERVER__/reporting-service:__IMAGE_TAG__
+          ports: [{ containerPort: 8006 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8006 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8006 }
+            initialDelaySeconds: 5
+            periodSeconds: 10

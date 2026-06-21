@@ -29,6 +29,11 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "parser-service"}
 
 
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    return {"status": "ready", "service": "parser-service"}
+
+
 @app.post("/parse", tags=["parser"])
 def parse(request: ParseRequest) -> dict[str, object]:
     if not request.files:

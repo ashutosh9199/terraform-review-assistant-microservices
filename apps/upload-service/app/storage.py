@@ -1,3 +1,5 @@
+import io
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -108,3 +110,127 @@ class UploadStore:
             counter += 1
         used_names.add(candidate)
         return candidate
+
+    def ready(self) -> bool:
+        """Readiness check — the storage directory is writable."""
+        return self.base.exists()
+
+
+# --- shared validation / safe ZIP expansion (used by the Blob backend) ---
+
+
+def _unique_key(filename: str, used: set[str]) -> str:
+    stem = Path(filename).stem or "terraform"
+    suffix = Path(filename).suffix or ".tf"
+    candidate = f"{stem}{suffix}"
+    counter = 1
+    while candidate in used:
+        candidate = f"{stem}-{counter}{suffix}"
+        counter += 1
+    used.add(candidate)
+    return candidate
+
+
+def expand_to_text(files: list[tuple[str, bytes]]) -> dict[str, str]:
+    """Validate uploads and return {relative_path: text} for parseable files.
+
+    ZIP archives are expanded in memory with path-traversal and size guards;
+    individual .tf/.tfvars files are kept as-is. Mirrors the validation the
+    local ``UploadStore`` performs, but produces an in-memory mapping suitable
+    for uploading to object storage.
+    """
+    if not files:
+        raise UploadError(400, "At least one file is required.")
+
+    result: dict[str, str] = {}
+    used: set[str] = set()
+    for filename, content in files:
+        extension = Path(filename).suffix.lower()
+        if extension not in ALLOWED_EXTENSIONS:
+            raise UploadError(400, "Only .tf, .tfvars, and .zip uploads are supported.")
+        if len(content) > config.max_upload_bytes:
+            raise UploadError(413, "Upload exceeds configured size limit.")
+        if extension == ".zip":
+            _expand_zip_to_text(content, result)
+        elif extension in PARSEABLE_EXTENSIONS:
+            key = _unique_key(Path(filename).name, used)
+            result[key] = content.decode("utf-8", errors="replace")
+    return result
+
+
+def _expand_zip_to_text(content: bytes, result: dict[str, str]) -> None:
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            normalized = os.path.normpath(member.filename)
+            if os.path.isabs(normalized) or normalized.startswith(".."):
+                raise UploadError(400, "Unsafe ZIP path detected.")
+            if Path(normalized).suffix.lower() not in PARSEABLE_EXTENSIONS:
+                continue
+            if member.file_size > config.max_upload_bytes:
+                raise UploadError(413, "ZIP member exceeds size limit.")
+            result[Path(normalized).as_posix()] = archive.read(member).decode(
+                "utf-8", errors="replace"
+            )
+
+
+class BlobUploadStore:
+    """Stores expanded Terraform files in Azure Blob Storage.
+
+    Authenticates with ``DefaultAzureCredential``, which on AKS transparently
+    uses the Workload Identity projected token. There is no account key or
+    connection string anywhere — identity comes from the pod's ServiceAccount.
+    """
+
+    def __init__(self) -> None:
+        from azure.identity import DefaultAzureCredential
+        from azure.storage.blob import BlobServiceClient
+
+        account = config.azure_storage_account
+        if not account:
+            raise UploadError(500, "AZURE_STORAGE_ACCOUNT is not configured.")
+        self.container = config.azure_storage_container
+        account_url = f"https://{account}.blob.core.windows.net"
+        # Client/credential construction is lazy; no network call happens here.
+        self._service = BlobServiceClient(account_url, credential=DefaultAzureCredential())
+
+    def _container(self):
+        return self._service.get_container_client(self.container)
+
+    def _prefix(self, review_id: int) -> str:
+        return f"{review_id}/expanded/"
+
+    def store(self, review_id: int, files: list[tuple[str, bytes]]) -> list[str]:
+        expanded = expand_to_text(files)
+        container = self._container()
+        prefix = self._prefix(review_id)
+        for existing in container.list_blobs(name_starts_with=prefix):
+            container.delete_blob(existing.name)
+        for relative, text in expanded.items():
+            container.upload_blob(
+                name=prefix + relative, data=text.encode("utf-8"), overwrite=True
+            )
+        return sorted(expanded.keys())
+
+    def read_files(self, review_id: int) -> list[dict[str, str]]:
+        container = self._container()
+        prefix = self._prefix(review_id)
+        result: list[dict[str, str]] = []
+        for blob in container.list_blobs(name_starts_with=prefix):
+            relative = blob.name[len(prefix):]
+            data = container.download_blob(blob.name).readall()
+            result.append({"path": relative, "content": data.decode("utf-8", errors="replace")})
+        return sorted(result, key=lambda item: item["path"])
+
+    def ready(self) -> bool:
+        """Readiness check — confirm the container is reachable via Workload Identity."""
+        self._container().get_container_properties()
+        return True
+
+
+def get_store():
+    """Return the configured upload store (Azure Blob in AKS, local otherwise)."""
+    if config.storage_backend == "azure":
+        return BlobUploadStore()
+    return UploadStore()

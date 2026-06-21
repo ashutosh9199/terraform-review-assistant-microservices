@@ -1,0 +1,94 @@
+name: terraform-apply
+
+# Capstone §C pipeline 3: infrastructure. Triggered by changes under
+# infra/terraform/**. Runs fmt/validate, produces a plan, then requires manual
+# approval (the `infrastructure` environment's required reviewers) before apply.
+# Auth via OIDC; remote state in Azure Storage with native blob locking.
+
+on:
+  push:
+    branches: [main]
+    paths: ["infra/terraform/**", ".github/workflows/terraform-apply.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_WORKDIR: infra/terraform/environments/aks
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Format check
+        run: terraform fmt -check -recursive infra/terraform
+      - name: Init (no state needed for validate)
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform init -backend=false
+      - name: Validate
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform validate
+
+  plan:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Init (remote backend)
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_SA }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=aks/terraform.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - name: Plan
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform plan -out=tfplan -no-color | tee plan.txt
+      - name: Render plan to summary
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          echo '### Terraform plan' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -c 60000 plan.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKDIR }}/tfplan
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: infrastructure # <-- required reviewers here = manual approval gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Init (remote backend)
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_SA }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=aks/terraform.tfstate" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKDIR }}
+      - name: Apply
+        working-directory: ${{ env.TF_WORKDIR }}
+        run: terraform apply -auto-approve tfplan

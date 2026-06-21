@@ -24,6 +24,11 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "rules-service"}
 
 
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    return {"status": "ready", "service": "rules-service"}
+
+
 @app.post("/evaluate", tags=["rules"])
 def evaluate(request: EvaluateRequest) -> dict[str, object]:
     findings = [asdict(finding) for finding in engine.evaluate(request.inventory)]

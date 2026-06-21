@@ -47,6 +47,11 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "ai-review-service"}
 
 
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    return {"status": "ready", "service": "ai-review-service"}
+
+
 @app.post("/review", tags=["ai"])
 async def review(request: ReviewRequest) -> dict[str, object]:
     findings = await AiReviewService(_build_client(request.llm)).review(

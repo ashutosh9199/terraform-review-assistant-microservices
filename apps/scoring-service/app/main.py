@@ -23,6 +23,11 @@ def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "scoring-service"}
 
 
+@app.get("/ready", tags=["system"])
+def ready() -> dict[str, str]:
+    return {"status": "ready", "service": "scoring-service"}
+
+
 @app.post("/score", tags=["scoring"])
 def score(request: ScoreRequest) -> dict[str, Any]:
     return scoring.score(request.findings)

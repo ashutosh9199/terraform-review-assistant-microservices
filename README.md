@@ -192,6 +192,29 @@ PUT  /api/settings/llm
 
 ## Azure Deployment
 
+### AKS (Kubernetes) — primary
+
+Production deployment runs on **Azure Kubernetes Service** with GitOps CI/CD and
+pod-to-cloud Workload Identity. See **[docs/aks-deployment.md](docs/aks-deployment.md)**
+for the full runbook and **[docs/capstone-coverage.md](docs/capstone-coverage.md)**
+for the requirement-by-requirement coverage map.
+
+```bash
+./scripts/bootstrap-tfstate.sh                          # remote state (once)
+cd infra/terraform/environments/aks
+terraform init -backend-config=backend.hcl
+terraform apply                                         # VNet, AKS, ACR, Blob, Workload Identity
+```
+
+The AKS stack provisions: VNet (public + private subnets), AKS (v1.29+, system +
+user node pools, autoscaling, OIDC issuer + Workload Identity), Azure Container
+Registry, Storage Account (Blob), user-assigned managed identity + federated
+credential, Key Vault, Log Analytics + Application Insights. Kubernetes manifests
+live in [`kubernetes/`](kubernetes/); the three pipelines live in
+[`.github/workflows/`](.github/workflows/) (`build`, `deploy`, `terraform-apply`).
+
+### App Service — legacy
+
 ```powershell
 cd infra/terraform/environments/dev
 terraform init
@@ -199,7 +222,7 @@ terraform plan
 terraform apply
 ```
 
-The Terraform stack provisions:
+The App Service stack provisions:
 
 - Resource Group
 - Storage Account

@@ -17,3 +17,16 @@ terraform.tfstate*
 *.egg-info/
 *.tsbuildinfo
 .verify-logs/
+
+# Secrets must never be committed (capstone §7: no hardcoded credentials).
+# Non-secret terraform.tfvars IS committed; anything carrying secrets is not.
+*.auto.tfvars
+secret*.tfvars
+*.secret.tfvars
+kubernetes/secret.yaml
+*.pem
+*.key
+*.pfx
+.azure/
+kubeconfig
+*kubeconfig*

@@ -1,3 +1,23 @@
+# syntax=docker/dockerfile:1
+
+# ---- builder: build the application + dependency wheels (build tools stay out of runtime) ----
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build a wheel for the gateway package and all of its runtime dependencies.
+COPY pyproject.toml ./
+COPY app ./app
+RUN pip wheel --no-cache-dir --wheel-dir /wheels .
+
+# ---- runtime: slim image, no build tools, non-root user (capstone §7) ----
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -5,14 +25,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
+# Non-privileged user (UID 10001) — the container must never run as root.
+RUN groupadd --system --gid 10001 appuser \
+    && useradd --system --uid 10001 --gid appuser --no-create-home appuser
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e .
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir --no-index --find-links=/wheels terraform-review-api \
+    && rm -rf /wheels
 
 COPY app ./app
 
-RUN mkdir -p /app/data/storage
+# Local SQLite/data dir (AKS uses Azure SQL); owned by the non-root user.
+RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+
+USER appuser
 
 EXPOSE 8000
 
