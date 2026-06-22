@@ -1,6 +1,35 @@
 # AI-Powered Terraform Review Assistant
 
+[![build](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/build.yml/badge.svg)](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/build.yml)
+[![deploy](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/deploy.yml/badge.svg)](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/deploy.yml)
+[![terraform-apply](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/terraform-apply.yml/badge.svg)](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/terraform-apply.yml)
+[![codeql](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/codeql.yml/badge.svg)](https://github.com/ashutosh9199/terraform-review-assistant-microservices/actions/workflows/codeql.yml)
+
 Enterprise web platform for reviewing Azure Terraform projects with static analysis, governance checks, AI-assisted recommendations, scoring, and downloadable reports.
+
+## Live Deployment (Capstone Track B: Azure AKS)
+
+The app is deployed and running on Azure Kubernetes Service right now:
+
+| | |
+|---|---|
+| **URL** | http://20.241.214.29 |
+| **Demo login** | `admin@example.com` / `ChangeMe123!` |
+| **Cluster** | `tra-aks-aks` (resource group `tra-aks-rg`, region `eastus`, K8s v1.34.8) |
+| **Status** | 10/10 pods `Running` across 8 services; `terraform-apply`, `build`, and `deploy` all have recorded successful CI runs with manual approval gates exercised |
+
+Verified end-to-end on this deployment: login → create project → upload a `.tf` file →
+background pipeline (`upload-service` → `parser-service` → `rules-service` →
+`scoring-service` → `reporting-service`) → scorecard + findings returned. The
+`upload-service` pod authenticates to Azure Blob Storage purely via Workload
+Identity (federated credential, zero static keys) — see
+[docs/capstone-coverage.md](docs/capstone-coverage.md) for the full
+requirement-by-requirement mapping with evidence.
+
+> If the URL above is unreachable, the cluster has likely been torn down after
+> evaluation to stop billing (see [docs/RESUME-DEPLOYMENT.md](docs/RESUME-DEPLOYMENT.md)
+> to recreate it) — `terraform apply` in `infra/terraform/environments/aks`
+> reprovisions everything from scratch.
 
 ## What It Does
 

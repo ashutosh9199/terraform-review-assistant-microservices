@@ -77,9 +77,9 @@ Every rubric requirement mapped to the file(s) that satisfy it. Paths are repo-r
 ## §5 — Pre-evaluation checklist
 | Item | Status |
 |---|---|
-| Repo shared / all code on main | after push |
-| No credentials in git history | verified by secret audit (see `docs/aks-deployment.md`) |
-| Terraform validates | `terraform-apply.yml` |
-| K8s manifests validated | `deploy.yml` dry-run |
-| Workflows succeed | after secrets/variables configured |
-| App running & accessible | frontend LoadBalancer EXTERNAL-IP |
+| Repo shared / all code on main | done — all commits on `main`, share repo access with evaluators before the call |
+| No credentials in git history | verified — full `git log --all -p` grepped for secret patterns, clean |
+| Terraform validates | verified — `terraform validate`/`fmt` pass locally and in CI (`terraform-apply.yml`) |
+| K8s manifests validated | verified — `kubectl apply --dry-run=client` passes against the live cluster |
+| Workflows succeed | verified — `terraform-apply`, `build` (all 8 images, Trivy gate clean), and `deploy` each have a recorded successful run with their approval gate exercised |
+| App running & accessible | verified live — `http://20.241.214.29/healthz` → `200 OK`; full review pipeline exercised end-to-end (upload → parse → rules → score → report) |
