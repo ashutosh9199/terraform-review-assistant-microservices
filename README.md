@@ -26,6 +26,17 @@ Identity (federated credential, zero static keys) — see
 [docs/capstone-coverage.md](docs/capstone-coverage.md) for the full
 requirement-by-requirement mapping with evidence.
 
+**Monitoring (bonus):** a minimal Prometheus + Grafana stack runs in its own
+`monitoring` namespace ([`kubernetes/monitoring/`](kubernetes/monitoring/)),
+scraping real HTTP request/latency metrics from `api-gateway`'s `/metrics`
+endpoint. Not exposed externally — view it via:
+```
+kubectl port-forward -n monitoring svc/grafana 3000:3000
+```
+then open `http://localhost:3000` (user `admin`, password from
+`kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d`).
+A "API Gateway" dashboard is auto-provisioned with request rate and p95 latency panels.
+
 > If the URL above is unreachable, the cluster has likely been torn down after
 > evaluation to stop billing (see [docs/RESUME-DEPLOYMENT.md](docs/RESUME-DEPLOYMENT.md)
 > to recreate it) — `terraform apply` in `infra/terraform/environments/aks`
