@@ -25,6 +25,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Patch the base image's bundled pip/setuptools/wheel (CVE fixes for the
+# build-tooling metadata Trivy flags even though the app never imports them).
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Non-privileged user (UID 10001) — the container must never run as root.
 RUN groupadd --system --gid 10001 appuser \
     && useradd --system --uid 10001 --gid appuser --no-create-home appuser

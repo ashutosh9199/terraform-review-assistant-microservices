@@ -18,6 +18,10 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine
 # nginx-unprivileged runs as a non-root user (UID 101) and cannot bind :80.
 # Gateway upstream is env-substituted into the config at container start.
 ENV GATEWAY_UPSTREAM=api-gateway:8000
+# Patch base OS packages (briefly as root; the image still ends as USER 101).
+USER root
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
+USER 101
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 EXPOSE 8080
