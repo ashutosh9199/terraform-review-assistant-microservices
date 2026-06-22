@@ -13,6 +13,7 @@ data/
 .terraform.lock.hcl
 terraform.tfstate*
 *.tfplan
+tfplan
 *.log
 *.egg-info/
 *.tsbuildinfo
