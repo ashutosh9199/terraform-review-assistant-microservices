@@ -1,0 +1,7 @@
+# Separate namespace for the monitoring stack (capstone §8 bonus: Advanced
+# Monitoring) -- kept isolated from "production" so its NetworkPolicy and RBAC
+# footprint stay independent of the application services.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring

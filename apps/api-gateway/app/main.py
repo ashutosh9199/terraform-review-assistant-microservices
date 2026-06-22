@@ -1,6 +1,10 @@
-from fastapi import FastAPI, HTTPException
+import time
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from sqlalchemy import text
+from starlette.responses import Response
 
 from app.core.config import get_settings
 from app.core.database import engine, init_db
@@ -23,6 +27,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(InMemoryRateLimitMiddleware, limit=120, window_seconds=60)
+
+# Hand-rolled metrics middleware (capstone §8 bonus: Advanced Monitoring).
+# Deliberately avoids prometheus-fastapi-instrumentator: its route-name
+# introspection breaks against this image's FastAPI/Starlette versions
+# (AttributeError on `_IncludedRouter`). request.url.path is version-stable.
+REQUEST_COUNT = Counter(
+    "http_requests_total", "Total HTTP requests", ["method", "path", "status"]
+)
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds", "HTTP request latency in seconds", ["method", "path"]
+)
+
+
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - start
+    path = request.url.path
+    REQUEST_COUNT.labels(request.method, path, response.status_code).inc()
+    REQUEST_LATENCY.labels(request.method, path).observe(duration)
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.on_event("startup")

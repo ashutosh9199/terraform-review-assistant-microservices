@@ -69,6 +69,22 @@ jobs:
             kubectl rollout status deployment/$d -n production --timeout=180s
           done
 
+      - name: Create monitoring namespace & Grafana Secret (from GitHub Secret)
+        run: |
+          kubectl apply -f kubernetes/monitoring/namespace.yaml
+          kubectl create secret generic grafana-admin -n monitoring \
+            --from-literal=admin-password="${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: "Apply monitoring manifests (capstone bonus: Advanced Monitoring)"
+        run: kubectl apply -f kubernetes/monitoring/
+
+      - name: Wait for monitoring rollouts
+        run: |
+          for d in prometheus grafana; do
+            kubectl rollout status deployment/$d -n monitoring --timeout=120s
+          done
+
       - name: Smoke test (frontend EXTERNAL-IP health)
         run: |
           IP=""

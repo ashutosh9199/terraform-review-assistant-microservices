@@ -33,3 +33,23 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - {}
+---
+# Lets Prometheus (separate "monitoring" namespace, capstone §8 bonus) scrape
+# api-gateway's /metrics without widening allow-same-namespace to other
+# namespaces in general.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-scrape
+  namespace: production
+spec:
+  podSelector:
+    matchLabels: { app: api-gateway }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - { protocol: TCP, port: 8000 }
