@@ -37,6 +37,19 @@ then open `http://localhost:3000` (user `admin`, password from
 `kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d`).
 A "API Gateway" dashboard is auto-provisioned with request rate and p95 latency panels.
 
+**GitOps (bonus):** ArgoCD runs in its own `argocd` namespace and manages the
+`monitoring` stack (Prometheus + Grafana) by pulling directly from this
+repo's `main` branch — any commit under [`kubernetes/monitoring/`](kubernetes/monitoring/)
+is auto-synced, with drift correction and pruning. Production (image-tag
+substitution + manual approval gate) stays on push-based CD via `deploy.yml`
+deliberately — see [`argocd/monitoring-application.yaml`](argocd/monitoring-application.yaml)
+for the Application definition. Not exposed externally — view it via:
+```
+kubectl port-forward -n argocd svc/argocd-server 8080:443
+```
+then open `https://localhost:8080` (user `admin`, password from
+`kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`).
+
 > If the URL above is unreachable, the cluster has likely been torn down after
 > evaluation to stop billing (see [docs/RESUME-DEPLOYMENT.md](docs/RESUME-DEPLOYMENT.md)
 > to recreate it) — `terraform apply` in `infra/terraform/environments/aks`

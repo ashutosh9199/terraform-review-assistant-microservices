@@ -73,6 +73,7 @@ Every rubric requirement mapped to the file(s) that satisfy it. Paths are repo-r
 | API documentation | FastAPI `/docs` (every service) |
 | Advanced monitoring (Prometheus + Grafana) | `kubernetes/monitoring/` -- Prometheus scrapes real HTTP metrics from `apps/api-gateway/app/main.py`, Grafana auto-provisions a 3-panel dashboard (request rate by path, request rate by status, p95 latency). Verified live: `sum(http_requests_total)` returns real traffic through Grafana's datasource proxy. Also: Application Insights + Container Insights (`oms_agent`) |
 | Network Policy | `kubernetes/networkpolicy.yaml` (includes a scoped cross-namespace rule so Prometheus, in its own `monitoring` namespace, can reach `api-gateway:8000` without widening same-namespace-only ingress) |
+| GitOps (ArgoCD, pull-based CD) | `argocd/monitoring-application.yaml` -- ArgoCD installed in-cluster (`argocd` namespace), manages the `monitoring` stack with automated sync + prune + selfHeal direct from this repo's `main` branch. Deliberate hybrid: `production` (image-tag substitution + manual approval gate) stays on push-based CD via `deploy.yml`; the observability stack (fixed public images, no per-deploy secrets) is pull-based GitOps instead. Verified live: `kubectl get application monitoring -n argocd` shows `Synced`/`Healthy`. |
 
 ## §5 — Pre-evaluation checklist
 | Item | Status |

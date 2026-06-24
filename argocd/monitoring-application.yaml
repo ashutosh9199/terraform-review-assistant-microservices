@@ -1,0 +1,32 @@
+# GitOps (pull-based CD) for the observability stack only.
+#
+# Production (api-gateway, frontend, and the 6 microservices) stays on
+# push-based CD via .github/workflows/deploy.yml: those manifests use
+# __ACR_LOGIN_SERVER__/__IMAGE_TAG__ placeholders resolved by CI, plus a
+# manual approval gate, which doesn't map cleanly onto pull-based sync.
+#
+# Prometheus/Grafana use fixed public images and carry no per-deploy secrets,
+# so ArgoCD can own them end-to-end: any commit under kubernetes/monitoring/
+# is auto-synced to the cluster, with drift correction (selfHeal) and pruning.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ashutosh9199/terraform-review-assistant-microservices.git
+    targetRevision: main
+    path: kubernetes/monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
