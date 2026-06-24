@@ -124,6 +124,24 @@ registration -- all of that is reused as-is on redeploy.
    kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d
    ```
 
+9. **Reinstall ArgoCD** (capstone GitOps bonus) -- it lives inside the AKS
+   cluster, installed by hand via `kubectl`, not by Terraform or `deploy.yml`,
+   so `terraform destroy` wipes it and it does NOT come back on its own:
+   ```bash
+   kubectl create namespace argocd
+   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
+   kubectl wait --for=condition=available --timeout=180s deployment/argocd-server deployment/argocd-repo-server -n argocd
+   kubectl apply -f argocd/monitoring-application.yaml
+   kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+   kubectl get svc argocd-server -n argocd   # wait for a new EXTERNAL-IP, update README with it
+   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+   ```
+   Note: use `--server-side --force-conflicts` on the install manifest --
+   plain `kubectl apply` fails on `applicationsets.argoproj.io` ("metadata
+   .annotations: Too long") because the CRD exceeds the
+   last-applied-configuration annotation size limit. The admin password
+   regenerates on every fresh install -- re-read it, don't reuse the old one.
+
 ## If something goes wrong mid-redeploy
 
 This exact sequence already hit two real issues once, both already fixed in

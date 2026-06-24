@@ -43,12 +43,16 @@ repo's `main` branch — any commit under [`kubernetes/monitoring/`](kubernetes/
 is auto-synced, with drift correction and pruning. Production (image-tag
 substitution + manual approval gate) stays on push-based CD via `deploy.yml`
 deliberately — see [`argocd/monitoring-application.yaml`](argocd/monitoring-application.yaml)
-for the Application definition. Not exposed externally — view it via:
-```
-kubectl port-forward -n argocd svc/argocd-server 8080:443
-```
-then open `https://localhost:8080` (user `admin`, password from
-`kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`).
+for the Application definition.
+
+| | |
+|---|---|
+| **ArgoCD UI** | https://20.232.223.158 (self-signed cert — browser will warn, proceed anyway) |
+| **Login** | `admin` / password from `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d` |
+
+(`argocd-server` is `type: LoadBalancer` for demo convenience; if unreachable,
+port-forward instead: `kubectl port-forward -n argocd svc/argocd-server 8080:443`
+then open `https://localhost:8080`.)
 
 > If the URL above is unreachable, the cluster has likely been torn down after
 > evaluation to stop billing (see [docs/RESUME-DEPLOYMENT.md](docs/RESUME-DEPLOYMENT.md)
