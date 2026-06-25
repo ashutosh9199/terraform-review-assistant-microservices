@@ -1,41 +1,81 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: terraform-review-assistant
   name: frontend
   namespace: production
-  labels: { app: frontend, app.kubernetes.io/part-of: terraform-review-assistant }
 spec:
+  progressDeadlineSeconds: 600
   replicas: 2
+  revisionHistoryLimit: 10
   selector:
-    matchLabels: { app: frontend }
+    matchLabels:
+      app: frontend
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
-      labels: { app: frontend }
+      labels:
+        app: frontend
     spec:
-      serviceAccountName: tra-app
+      containers:
+      - env:
+        - name: GATEWAY_UPSTREAM
+          value: api-gateway:8000
+        image: traaksacrorhf1p.azurecr.io/frontend:10ee779972eb7c3f3ace22b1778695af6bc43233
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: frontend
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
       securityContext:
+        runAsGroup: 101
         runAsNonRoot: true
         runAsUser: 101
-        runAsGroup: 101
-        seccompProfile: { type: RuntimeDefault }
-      containers:
-        - name: frontend
-          image: traaksacrorhf1p.azurecr.io/frontend:10ee779972eb7c3f3ace22b1778695af6bc43233
-          ports: [{ containerPort: 8080 }]
-          env:
-            - name: GATEWAY_UPSTREAM
-              value: "api-gateway:8000"
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"] }
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: 500m, memory: 512Mi }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet: { path: /healthz, port: 8080 }
-            initialDelaySeconds: 5
-            periodSeconds: 10
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: tra-app
+      serviceAccountName: tra-app
+      terminationGracePeriodSeconds: 30

@@ -1,43 +1,83 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app: upload-service
+    app.kubernetes.io/part-of: terraform-review-assistant
   name: upload-service
   namespace: production
-  labels: { app: upload-service, app.kubernetes.io/part-of: terraform-review-assistant }
 spec:
+  progressDeadlineSeconds: 600
   replicas: 2
+  revisionHistoryLimit: 10
   selector:
-    matchLabels: { app: upload-service }
+    matchLabels:
+      app: upload-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
       labels:
         app: upload-service
-        azure.workload.identity/use: "true"
+        azure.workload.identity/use: 'true'
     spec:
-      serviceAccountName: upload-service
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: tra-config
+        image: traaksacrorhf1p.azurecr.io/upload-service:10ee779972eb7c3f3ace22b1778695af6bc43233
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8001
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: upload-service
+        ports:
+        - containerPort: 8001
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 8001
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
       securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
         runAsNonRoot: true
         runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile: { type: RuntimeDefault }
-      containers:
-        - name: upload-service
-          image: traaksacrorhf1p.azurecr.io/upload-service:10ee779972eb7c3f3ace22b1778695af6bc43233
-          ports: [{ containerPort: 8001 }]
-          envFrom:
-            - configMapRef: { name: tra-config }
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"] }
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: 500m, memory: 512Mi }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8001 }
-            initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet: { path: /ready, port: 8001 }
-            initialDelaySeconds: 5
-            periodSeconds: 10
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: upload-service
+      serviceAccountName: upload-service
+      terminationGracePeriodSeconds: 30

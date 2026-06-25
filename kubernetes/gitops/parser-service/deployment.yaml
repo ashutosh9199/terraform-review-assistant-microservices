@@ -1,39 +1,79 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app: parser-service
+    app.kubernetes.io/part-of: terraform-review-assistant
   name: parser-service
   namespace: production
-  labels: { app: parser-service, app.kubernetes.io/part-of: terraform-review-assistant }
 spec:
+  progressDeadlineSeconds: 600
   replicas: 1
+  revisionHistoryLimit: 10
   selector:
-    matchLabels: { app: parser-service }
+    matchLabels:
+      app: parser-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
-      labels: { app: parser-service }
+      labels:
+        app: parser-service
     spec:
-      serviceAccountName: tra-app
+      containers:
+      - image: traaksacrorhf1p.azurecr.io/parser-service:10ee779972eb7c3f3ace22b1778695af6bc43233
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8002
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: parser-service
+        ports:
+        - containerPort: 8002
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 8002
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
       securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
         runAsNonRoot: true
         runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile: { type: RuntimeDefault }
-      containers:
-        - name: parser-service
-          image: traaksacrorhf1p.azurecr.io/parser-service:10ee779972eb7c3f3ace22b1778695af6bc43233
-          ports: [{ containerPort: 8002 }]
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"] }
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: 500m, memory: 512Mi }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8002 }
-            initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet: { path: /ready, port: 8002 }
-            initialDelaySeconds: 5
-            periodSeconds: 10
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: tra-app
+      serviceAccountName: tra-app
+      terminationGracePeriodSeconds: 30

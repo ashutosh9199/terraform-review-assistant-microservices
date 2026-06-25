@@ -1,44 +1,90 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: terraform-review-assistant
   name: api-gateway
   namespace: production
-  labels: { app: api-gateway, app.kubernetes.io/part-of: terraform-review-assistant }
 spec:
+  progressDeadlineSeconds: 600
   replicas: 1
+  revisionHistoryLimit: 10
   selector:
-    matchLabels: { app: api-gateway }
+    matchLabels:
+      app: api-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
   template:
     metadata:
-      labels: { app: api-gateway }
+      labels:
+        app: api-gateway
     spec:
-      serviceAccountName: tra-app
+      containers:
+      - args:
+        - python -m app.bootstrap && exec uvicorn app.main:app --host 0.0.0.0 --port
+          8000
+        command:
+        - /bin/sh
+        - -c
+        envFrom:
+        - configMapRef:
+            name: tra-config
+        - secretRef:
+            name: tra-secrets
+        image: traaksacrorhf1p.azurecr.io/api-gateway:10ee779972eb7c3f3ace22b1778695af6bc43233
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: api-gateway
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
       securityContext:
+        fsGroup: 10001
+        runAsGroup: 10001
         runAsNonRoot: true
         runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile: { type: RuntimeDefault }
-      containers:
-        - name: api-gateway
-          image: traaksacrorhf1p.azurecr.io/api-gateway:10ee779972eb7c3f3ace22b1778695af6bc43233
-          command: ["/bin/sh", "-c"]
-          args: ["python -m app.bootstrap && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
-          ports: [{ containerPort: 8000 }]
-          envFrom:
-            - configMapRef: { name: tra-config }
-            - secretRef: { name: tra-secrets }
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"] }
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: 500m, memory: 512Mi }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8000 }
-            initialDelaySeconds: 15
-            periodSeconds: 15
-          readinessProbe:
-            httpGet: { path: /ready, port: 8000 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: tra-app
+      serviceAccountName: tra-app
+      terminationGracePeriodSeconds: 30

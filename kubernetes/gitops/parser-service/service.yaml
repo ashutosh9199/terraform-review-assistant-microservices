@@ -1,11 +1,24 @@
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    app: parser-service
   name: parser-service
   namespace: production
-  labels: { app: parser-service }
 spec:
-  type: ClusterIP
-  selector: { app: parser-service }
+  clusterIP: 10.1.1.188
+  clusterIPs:
+  - 10.1.1.188
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
   ports:
-    - { name: http, port: 8002, targetPort: 8002 }
+  - name: http
+    port: 8002
+    protocol: TCP
+    targetPort: 8002
+  selector:
+    app: parser-service
+  sessionAffinity: None
+  type: ClusterIP
