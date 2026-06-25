@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parser-service
+  namespace: production
+  labels: { app: parser-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: parser-service }
+  template:
+    metadata:
+      labels: { app: parser-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: parser-service
+          image: traaksacrorhf1p.azurecr.io/parser-service:10ee779972eb7c3f3ace22b1778695af6bc43233
+          ports: [{ containerPort: 8002 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8002 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8002 }
+            initialDelaySeconds: 5
+            periodSeconds: 10

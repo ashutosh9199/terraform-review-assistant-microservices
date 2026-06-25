@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scoring-service
+  namespace: production
+  labels: { app: scoring-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: scoring-service }
+  template:
+    metadata:
+      labels: { app: scoring-service }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: scoring-service
+          image: traaksacrorhf1p.azurecr.io/scoring-service:10ee779972eb7c3f3ace22b1778695af6bc43233
+          ports: [{ containerPort: 8005 }]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8005 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8005 }
+            initialDelaySeconds: 5
+            periodSeconds: 10

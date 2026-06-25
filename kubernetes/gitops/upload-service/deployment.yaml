@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-service
+  namespace: production
+  labels: { app: upload-service, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: upload-service }
+  template:
+    metadata:
+      labels:
+        app: upload-service
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: upload-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: upload-service
+          image: traaksacrorhf1p.azurecr.io/upload-service:10ee779972eb7c3f3ace22b1778695af6bc43233
+          ports: [{ containerPort: 8001 }]
+          envFrom:
+            - configMapRef: { name: tra-config }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8001 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8001 }
+            initialDelaySeconds: 5
+            periodSeconds: 10

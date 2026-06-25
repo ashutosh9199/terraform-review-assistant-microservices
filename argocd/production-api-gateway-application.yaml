@@ -1,0 +1,19 @@
+# Manual sync only -- deliberately NOT automated. deploy.yml remains the
+# real deployer for production (image tags rotate every deploy via CI-time
+# placeholder substitution); this Application adopts the already-running
+# resource for visibility/GitOps demo only. Auto-sync/selfHeal would fight
+# deploy.yml by trying to revert future image tags back to this pinned one.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: production-api-gateway
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ashutosh9199/terraform-review-assistant-microservices.git
+    targetRevision: main
+    path: kubernetes/gitops/api-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting-service
+  namespace: production
+  labels: { app: reporting-service }
+spec:
+  type: ClusterIP
+  selector: { app: reporting-service }
+  ports:
+    - { name: http, port: 8006, targetPort: 8006 }

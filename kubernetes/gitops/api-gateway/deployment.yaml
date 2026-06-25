@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: production
+  labels: { app: api-gateway, app.kubernetes.io/part-of: terraform-review-assistant }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: api-gateway }
+  template:
+    metadata:
+      labels: { app: api-gateway }
+    spec:
+      serviceAccountName: tra-app
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: api-gateway
+          image: traaksacrorhf1p.azurecr.io/api-gateway:10ee779972eb7c3f3ace22b1778695af6bc43233
+          command: ["/bin/sh", "-c"]
+          args: ["python -m app.bootstrap && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: tra-config }
+            - secretRef: { name: tra-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8000 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /ready, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10

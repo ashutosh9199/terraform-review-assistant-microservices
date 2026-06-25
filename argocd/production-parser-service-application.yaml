@@ -1,0 +1,15 @@
+# Manual sync only -- see production-api-gateway-application.yaml for why.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: production-parser-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ashutosh9199/terraform-review-assistant-microservices.git
+    targetRevision: main
+    path: kubernetes/gitops/parser-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
