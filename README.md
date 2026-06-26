@@ -37,13 +37,26 @@ then open `http://localhost:3000` (user `admin`, password from
 `kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d`).
 A "API Gateway" dashboard is auto-provisioned with request rate and p95 latency panels.
 
-**GitOps (bonus):** ArgoCD runs in its own `argocd` namespace and manages the
-`monitoring` stack (Prometheus + Grafana) by pulling directly from this
-repo's `main` branch — any commit under [`kubernetes/monitoring/`](kubernetes/monitoring/)
-is auto-synced, with drift correction and pruning. Production (image-tag
-substitution + manual approval gate) stays on push-based CD via `deploy.yml`
-deliberately — see [`argocd/monitoring-application.yaml`](argocd/monitoring-application.yaml)
-for the Application definition.
+**GitOps (bonus):** ArgoCD runs in its own `argocd` namespace with 9
+Applications total — one for `monitoring` (Prometheus + Grafana, fully
+automated: pulls from `main`, auto-syncs, prunes, self-heals) and one per
+microservice (`production-api-gateway`, `production-frontend`,
+`production-upload-service`, `production-parser-service`,
+`production-rules-service`, `production-ai-review-service`,
+`production-scoring-service`, `production-reporting-service` — see
+[`argocd/`](argocd/)). The per-service ones are **manual sync only, on
+purpose**: `deploy.yml` remains the real deployer for production (it
+rotates each service's image tag on every CI run via placeholder
+substitution, behind a manual approval gate), and auto-sync/selfHeal here
+would fight that by trying to revert a future tag back to the snapshot
+pinned in [`kubernetes/gitops/`](kubernetes/gitops/). These Applications
+exist to give per-microservice GitOps visibility without taking deploy
+authority away from the existing pipeline. Expect them to show
+`OutOfSync` after the next real deploy (the pinned tag is now stale) —
+that's cosmetic, not a problem; run
+[`scripts/sync-gitops-manifests.py`](scripts/sync-gitops-manifests.py)
+(re-snapshots the live spec for each service) and push to bring them back
+to `Synced`.
 
 | | |
 |---|---|

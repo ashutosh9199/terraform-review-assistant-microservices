@@ -136,6 +136,21 @@ registration -- all of that is reused as-is on redeploy.
    kubectl get svc argocd-server -n argocd   # wait for a new EXTERNAL-IP, update README with it
    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
    ```
+   Then re-snapshot and adopt the 8 per-microservice Applications (their
+   pinned image tag/ClusterIPs/nodePort from before the destroy are now
+   stale, so apply them only AFTER `deploy` has redeployed production with
+   fresh values):
+   ```bash
+   python scripts/sync-gitops-manifests.py   # dumps live spec into kubernetes/gitops/<service>/
+   git add kubernetes/gitops/ && git commit -m "Resnapshot gitops manifests after redeploy" && git push
+   kubectl apply -f argocd/production-api-gateway-application.yaml -f argocd/production-frontend-application.yaml -f argocd/production-upload-service-application.yaml -f argocd/production-parser-service-application.yaml -f argocd/production-rules-service-application.yaml -f argocd/production-ai-review-service-application.yaml -f argocd/production-scoring-service-application.yaml -f argocd/production-reporting-service-application.yaml
+   # then one-time sync each (annotation-only change, no pod restart -- see capstone-coverage.md):
+   for app in production-api-gateway production-frontend production-upload-service production-parser-service production-rules-service production-ai-review-service production-scoring-service production-reporting-service; do
+     kubectl exec -n argocd deploy/argocd-server -- argocd app sync $app --server localhost:8080 --insecure --username admin --password "$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
+   done
+   ```
+   These stay manual-sync-only (never automated) -- production's image tags
+   rotate on every real deploy, and auto-sync/selfHeal would fight that.
    Note: use `--server-side --force-conflicts` on the install manifest --
    plain `kubectl apply` fails on `applicationsets.argoproj.io` ("metadata
    .annotations: Too long") because the CRD exceeds the
