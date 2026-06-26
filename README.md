@@ -346,3 +346,5 @@ terraform validate
 - Tenant isolation and enterprise SSO
 - Azure Cost Management API enrichment
 - Policy-as-code import from Azure Policy
+- ACR private endpoint (`public_network_access_enabled = false`), flagged by SonarCloud (`terraform:S6329`) -- deferred since tightening it needs careful sequencing so it doesn't break live image pulls into AKS
+- Resolve `ecdsa` transitive CVE in `api-gateway` (via `python-jose`) once upstream ships a fix, or migrate off `python-jose` to `PyJWT`
