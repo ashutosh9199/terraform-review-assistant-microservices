@@ -58,6 +58,38 @@ jobs:
           npm run lint
           npm run build
 
+  sonar-snyk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # SonarCloud wants full history for blame/new-code analysis
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      # Advisory only for now (continue-on-error): Snyk finding a real, currently
+      # unfixed vulnerability shouldn't suddenly break the pipeline. Promote to a
+      # hard gate (drop continue-on-error) once a baseline pass is reviewed.
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Snyk test (per service)
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk test --file=apps/api-gateway/pyproject.toml --severity-threshold=high
+          for svc in upload-service parser-service rules-service ai-review-service scoring-service reporting-service; do
+            echo "::group::$svc"
+            snyk test --file="apps/$svc/requirements.txt" --severity-threshold=high
+            echo "::endgroup::"
+          done
+          snyk test --file=apps/frontend/package.json --severity-threshold=high
+
   build-scan-push:
     needs: lint-test
     runs-on: ubuntu-latest

@@ -38,8 +38,9 @@ Every rubric requirement mapped to the file(s) that satisfy it. Paths are repo-r
 |---|---|
 | Build pipeline (lint/test/build/scan/push) | `.github/workflows/build.yml` |
 | Image scan + fail on HIGH/CRITICAL (gate) | `build.yml` Trivy step (`exit-code: 1`) |
-| SAST (static analysis) | `.github/workflows/codeql.yml` (Python + JS/TS) |
-| Code quality (lint) | `build.yml` ruff (gateway) + `npm run lint` (frontend) |
+| SAST (static analysis) | `.github/workflows/codeql.yml` (Python + JS/TS) + SonarCloud (`build.yml` `sonar-snyk` job, `sonar-project.properties`) |
+| Code quality (lint) | `build.yml` ruff (gateway) + `npm run lint` (frontend) + SonarCloud quality metrics |
+| Dependency vulnerability scanning | Snyk (`build.yml` `sonar-snyk` job) -- `snyk test` per service against each `requirements.txt`/`pyproject.toml`/`package.json`. Advisory only (`continue-on-error: true`) for now -- promote to a hard gate once a baseline pass is reviewed, so a pre-existing unfixed CVE doesn't suddenly break the pipeline this close to evaluation |
 | Notification on success/failure | `deploy.yml` notify step (`if: always()`) |
 | Deploy pipeline (creds, apply, rollout, smoke) | `.github/workflows/deploy.yml` |
 | Deploy requires approval | `deploy.yml` `environment: production` (required reviewers) |
