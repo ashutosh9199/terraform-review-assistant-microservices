@@ -88,22 +88,27 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
           set +e
-          # api-gateway uses a plain PEP 621 pyproject.toml, which Snyk's CLI can't
-          # parse directly (it only understands requirements.txt/Pipfile/Poetry) --
-          # freeze the resolved deps to a requirements.txt for scanning instead.
-          python -m venv /tmp/gw-venv
-          /tmp/gw-venv/bin/pip install -q -e apps/api-gateway
-          /tmp/gw-venv/bin/pip freeze > /tmp/gateway-requirements.txt
+          # Snyk needs the actual dependency tree resolvable, not just a manifest
+          # file -- it errors "Missing required packages" against a bare
+          # requirements.txt/pyproject.toml. Install each service into its own
+          # venv (api-gateway's plain PEP 621 pyproject.toml also isn't parseable
+          # by Snyk directly, hence freezing it to requirements.txt) and point
+          # --command at that venv's interpreter so Snyk can introspect it.
+          python -m venv /tmp/venv-api-gateway
+          /tmp/venv-api-gateway/bin/pip install -q -e apps/api-gateway
+          /tmp/venv-api-gateway/bin/pip freeze > /tmp/gateway-requirements.txt
           echo "::group::api-gateway"
-          snyk test --file=/tmp/gateway-requirements.txt --package-manager=pip --severity-threshold=high
+          snyk test --command=/tmp/venv-api-gateway/bin/python --file=/tmp/gateway-requirements.txt --package-manager=pip --severity-threshold=high
           echo "::endgroup::"
           for svc in upload-service parser-service rules-service ai-review-service scoring-service reporting-service; do
+            python -m venv "/tmp/venv-$svc"
+            "/tmp/venv-$svc/bin/pip" install -q -r "apps/$svc/requirements.txt"
             echo "::group::$svc"
-            snyk test --file="apps/$svc/requirements.txt" --severity-threshold=high
+            snyk test --command="/tmp/venv-$svc/bin/python" --file="apps/$svc/requirements.txt" --severity-threshold=high
             echo "::endgroup::"
           done
           echo "::group::frontend"
-          snyk test --file=apps/frontend/package.json --severity-threshold=high
+          (cd apps/frontend && npm install --silent && snyk test --severity-threshold=high)
           echo "::endgroup::"
           exit 0
 
