@@ -40,7 +40,7 @@ Every rubric requirement mapped to the file(s) that satisfy it. Paths are repo-r
 | Image scan + fail on HIGH/CRITICAL (gate) | `build.yml` Trivy step (`exit-code: 1`) |
 | SAST (static analysis) | `.github/workflows/codeql.yml` (Python + JS/TS) + SonarCloud (`build.yml` `sonar-snyk` job, `sonar-project.properties`) |
 | Code quality (lint) | `build.yml` ruff (gateway) + `npm run lint` (frontend) + SonarCloud quality metrics |
-| Dependency vulnerability scanning | Snyk (`build.yml` `sonar-snyk` job) -- `snyk test` per service against each `requirements.txt`/`pyproject.toml`/`package.json`. Advisory only (`continue-on-error: true`) for now -- promote to a hard gate once a baseline pass is reviewed, so a pre-existing unfixed CVE doesn't suddenly break the pipeline this close to evaluation |
+| Dependency vulnerability scanning | Snyk (`build.yml` `sonar-snyk` job) -- each service installed into its own venv (mirrors `lint-test`'s pattern), then `snyk test` against the resolved environment. Reviewed baseline (2026-06-26): 7/8 services clean; `api-gateway` flags 2 HIGH-severity, no-fix-available issues in `ecdsa` (transitive via `python-jose`) -- not exploitable here since `jwt_algorithm` is hardcoded to `HS256` (`app/core/config.py`), so the vulnerable ECDSA code path is never executed. Advisory only (`continue-on-error: true`) for now -- promote to a hard gate once `python-jose`'s ECDSA dependency is addressed upstream, so a known-irrelevant CVE doesn't block the pipeline |
 | Notification on success/failure | `deploy.yml` notify step (`if: always()`) |
 | Deploy pipeline (creds, apply, rollout, smoke) | `.github/workflows/deploy.yml` |
 | Deploy requires approval | `deploy.yml` `environment: production` (required reviewers) |
