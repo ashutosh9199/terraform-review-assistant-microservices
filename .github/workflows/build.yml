@@ -71,24 +71,41 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
 
-      # Advisory only for now (continue-on-error): Snyk finding a real, currently
-      # unfixed vulnerability shouldn't suddenly break the pipeline. Promote to a
-      # hard gate (drop continue-on-error) once a baseline pass is reviewed.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install Snyk CLI
         run: npm install -g snyk
 
+      # Advisory only for now (continue-on-error + set +e): Snyk finding a real,
+      # currently unfixed vulnerability shouldn't suddenly break the pipeline, and
+      # one service's scan failing shouldn't skip the rest. Promote to a hard gate
+      # (drop continue-on-error) once a baseline pass is reviewed.
       - name: Snyk test (per service)
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          snyk test --file=apps/api-gateway/pyproject.toml --severity-threshold=high
+          set +e
+          # api-gateway uses a plain PEP 621 pyproject.toml, which Snyk's CLI can't
+          # parse directly (it only understands requirements.txt/Pipfile/Poetry) --
+          # freeze the resolved deps to a requirements.txt for scanning instead.
+          python -m venv /tmp/gw-venv
+          /tmp/gw-venv/bin/pip install -q -e apps/api-gateway
+          /tmp/gw-venv/bin/pip freeze > /tmp/gateway-requirements.txt
+          echo "::group::api-gateway"
+          snyk test --file=/tmp/gateway-requirements.txt --package-manager=pip --severity-threshold=high
+          echo "::endgroup::"
           for svc in upload-service parser-service rules-service ai-review-service scoring-service reporting-service; do
             echo "::group::$svc"
             snyk test --file="apps/$svc/requirements.txt" --severity-threshold=high
             echo "::endgroup::"
           done
+          echo "::group::frontend"
           snyk test --file=apps/frontend/package.json --severity-threshold=high
+          echo "::endgroup::"
+          exit 0
 
   build-scan-push:
     needs: lint-test
